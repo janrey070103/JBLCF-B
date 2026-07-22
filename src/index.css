@@ -1,0 +1,206 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html,
+  body,
+  #root {
+    @apply m-0 p-0 bg-base text-primary-800 font-sans antialiased;
+    min-height: 100svh;
+  }
+
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* ── Print styles — QR ID-card output ────────────────────────────────── */
+/* When printing the QR code, hide everything except the card itself. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  #qr-print-area,
+  #qr-print-area * {
+    visibility: visible;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  #qr-print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+
+  /* Remove shadows / backgrounds that don't render well in print. */
+  .shadow-card,
+  .shadow-elevated {
+    box-shadow: none !important;
+  }
+
+  @page {
+    size: 3.375in 2.125in; /* standard CR-80 card size */
+    margin: 0;
+  }
+}
+
+/* ── Staggered table row entrance ─────────────────────────────────────── */
+/* Applied globally to all <table> elements. Each row animates in with a  */
+/* slight delay driven by the row's nth-child index. The keyframe itself   */
+/* must be defined here (not in Tailwind config) because it uses           */
+/* CSS custom properties set per-row via nth-child selectors.              */
+@keyframes stagger-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+table tbody tr {
+  animation: stagger-fade-up 0.4s cubic-bezier(0.22, 1, 0.36, 1) calc(var(--row-delay, 0) * 1ms) both;
+}
+table tbody tr:nth-child(1)      { --row-delay: 0   }
+table tbody tr:nth-child(2)      { --row-delay: 40  }
+table tbody tr:nth-child(3)      { --row-delay: 80  }
+table tbody tr:nth-child(4)      { --row-delay: 120 }
+table tbody tr:nth-child(5)      { --row-delay: 160 }
+table tbody tr:nth-child(6)      { --row-delay: 200 }
+table tbody tr:nth-child(n + 7)  { --row-delay: 240 }
+
+/* ── Login UI Overhaul Styles ──────────────────────────────────────────── */
+/* ===== QR Pattern ===== */
+.qr-grid {
+  display: grid;
+  grid-template-columns: repeat(21, 1fr);
+  grid-template-rows: repeat(21, 1fr);
+  gap: 2px;
+  width: 100%;
+  height: 100%;
+}
+.qr-cell { background: transparent; border-radius: 2px; transition: background .3s; }
+.qr-cell.active { background: #FFC107; box-shadow: 0 0 6px rgba(255,193,7,.5); } /* Using secondary color */
+
+/* ===== Scan line ===== */
+@keyframes scanMove {
+  0% { top: 0; opacity: 0; }
+  20% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}
+.scan-line {
+  position: absolute; left: 8%; right: 8%; height: 2px;
+  background: linear-gradient(90deg, transparent, #FFC107, #FFD040, #FFC107, transparent);
+  box-shadow: 0 0 12px #FFC107, 0 0 24px rgba(255,193,7,.5);
+  animation: scanMove 3s cubic-bezier(.45,0,.55,1) infinite;
+}
+
+/* ===== Glass ===== */
+.glass {
+  background: rgba(255,255,255,.06);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,.1);
+}
+
+/* ===== Background grid ===== */
+.bg-grid {
+  background-image:
+    linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
+}
+
+/* ===== Noise ===== */
+.noise {
+  position: absolute; inset: 0; opacity: .04; pointer-events: none; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ===== Orbs ===== */
+.orb { position: absolute; border-radius: 50%; filter: blur(80px); pointer-events: none; }
+
+/* ===== Login button (uiverse-inspired) ===== */
+.login-btn-premium {
+  position: relative; overflow: hidden;
+  background: linear-gradient(135deg, #041234 0%, #0A2472 60%, #08205F 100%);
+  transition: transform .25s ease, box-shadow .25s ease;
+  box-shadow: 0 12px 30px -10px rgba(4,18,52,.5);
+}
+.login-btn-premium::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(135deg, #FFC107 0%, #E6A800 100%);
+  transform: translateX(-100%);
+  transition: transform .45s cubic-bezier(.65,0,.35,1);
+}
+.login-btn-premium:hover::before { transform: translateX(0); }
+.login-btn-premium:hover .btn-text, .login-btn-premium:hover .btn-icon { color: #041234; }
+.login-btn-premium:hover { box-shadow: 0 14px 36px -8px rgba(255,193,7,.45); }
+.login-btn-premium:active { transform: scale(.98); }
+.btn-text, .btn-icon { position: relative; z-index: 2; transition: color .3s ease; }
+.btn-icon { transition: transform .3s ease, color .3s ease; }
+.login-btn-premium:hover .btn-icon { transform: translateX(4px); }
+
+/* ===== Reveal ===== */
+.reveal { opacity: 0; transform: translateY(20px); }
+
+/* ===== QR corner brackets ===== */
+.corner-bracket { position: absolute; width: 24px; height: 24px; border: 2px solid #FFC107; }
+
+/* ===== Feature card hover ===== */
+.feat-card { transition: all .35s cubic-bezier(.4,0,.2,1); }
+.feat-card:hover {
+  transform: translateY(-3px);
+  background: rgba(255,255,255,.1);
+  border-color: rgba(255,193,7,.3);
+}
+.feat-card:hover .feat-icon { color: #FFC107; transform: scale(1.1) rotate(-5deg); }
+.feat-icon { transition: all .35s ease; }
+
+/* ===== Inputs (shadcn-inspired) ===== */
+.input-field {
+  width: 100%; background: #fff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px 16px 16px 46px;
+  font-size: 15px;
+  color: #0f172a;
+  transition: all .25s ease;
+  outline: none;
+}
+.input-field::placeholder { color: #cbd5e1; }
+.input-field:focus {
+  border-color: #152C5B;
+  box-shadow: 0 0 0 4px rgba(21,44,91,.08);
+}
+.input-field:focus ~ .input-icon { color: #152C5B; transform: translateY(-50%) scale(1.05); }
+.input-icon {
+  position: absolute; left: 16px; top: 50%; transform: translateY(-50%);
+  color: #94a3b8; transition: all .25s ease; pointer-events: none;
+}
+
+
+/* ── Accessibility: Reduced Motion ───────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
