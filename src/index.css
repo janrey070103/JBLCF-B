@@ -175,8 +175,8 @@ table tbody tr:nth-child(n + 7)  { --row-delay: 240 }
   width: 100%; background: #fff;
   border: 1.5px solid #e2e8f0;
   border-radius: 12px;
-  padding: 16px 16px 16px 46px;
-  font-size: 15px;
+  padding: 18px 16px 18px 50px;
+  font-size: 16px;
   color: #0f172a;
   transition: all .25s ease;
   outline: none;
@@ -188,7 +188,7 @@ table tbody tr:nth-child(n + 7)  { --row-delay: 240 }
 }
 .input-field:focus ~ .input-icon { color: #152C5B; transform: translateY(-50%) scale(1.05); }
 .input-icon {
-  position: absolute; left: 16px; top: 50%; transform: translateY(-50%);
+  position: absolute; left: 20px; top: 50%; transform: translateY(-50%);
   color: #94a3b8; transition: all .25s ease; pointer-events: none;
 }
 

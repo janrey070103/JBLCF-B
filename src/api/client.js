@@ -22,7 +22,7 @@ export async function fetchApi(endpoint, options = {}) {
   if (!res.ok) {
     // Global 401 interceptor — JWT expired or revoked.
     // Clear session and dispatch an event so AuthProvider redirects to /login.
-    if (res.status === 401) {
+    if (res.status === 401 && endpoint !== '/api/auth/login') {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.dispatchEvent(new CustomEvent('session:expired'));

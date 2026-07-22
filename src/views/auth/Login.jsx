@@ -4,6 +4,7 @@ import { useAuthController } from '../../controllers/useAuthController.jsx';
 import { animate, stagger } from 'animejs';
 import { USER_ROLES } from '../../models';
 import logo from '../../assets/logo.jpg';
+import coverImg from '../../assets/cover.jpg';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -31,7 +32,13 @@ export default function Login() {
     const res = await submit((user) => {
       navigate(homeFor(user.role), { replace: true, state: { from: location } });
     });
-    void res;
+    
+    // If login failed (e.g. invalid credentials), reset the inputs
+    if (!res.ok) {
+      setEmail('');
+      setPassword('');
+      setTouched({ email: false, password: false });
+    }
   };
 
   // Anime.js effects
@@ -266,13 +273,20 @@ export default function Login() {
       </aside>
 
       {/* ============ RIGHT: LOGIN FORM ============ */}
-      <main className="w-full lg:w-1/2 min-h-screen flex items-center justify-center p-4 sm:p-6 lg:p-8 bg-white relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-[420px] h-[420px] bg-secondary-400/10 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-0 left-0 w-[420px] h-[420px] bg-primary-700/5 rounded-full blur-3xl"></div>
+      <main 
+        className="w-full lg:w-1/2 min-h-screen flex items-center justify-center p-4 sm:p-6 lg:p-8 relative overflow-hidden"
+        style={{ backgroundImage: `url(${coverImg})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+      >
+        {/* Blurry White Overlay */}
+        <div className="absolute inset-0 bg-white/40 backdrop-blur-md"></div>
+        
+        {/* Decorative Orbs */}
+        <div className="absolute top-0 right-0 w-[420px] h-[420px] bg-secondary-400/20 rounded-full blur-3xl mix-blend-multiply pointer-events-none"></div>
+        <div className="absolute bottom-0 left-0 w-[420px] h-[420px] bg-primary-700/10 rounded-full blur-3xl mix-blend-multiply pointer-events-none"></div>
         <div className="absolute top-10 right-10 w-2 h-2 rounded-full bg-secondary-500 animate-pulse"></div>
         <div className="absolute bottom-20 left-10 w-1.5 h-1.5 rounded-full bg-primary-600 animate-pulse" style={{animationDelay:'.5s'}}></div>
 
-        <div className="w-full max-w-md relative z-10">
+        <div className="w-full max-w-[500px] xl:max-w-[580px] relative z-10">
           <div className="lg:hidden flex items-center gap-3 mb-8 reveal">
             <div className="w-11 h-11 rounded-full flex items-center justify-center shadow-lg bg-white">
               <img src={logo} alt="JBLCF-B Logo" className="w-11 h-11 rounded-full object-cover p-1" />
@@ -288,25 +302,25 @@ export default function Login() {
               <span className="w-1.5 h-1.5 rounded-full bg-secondary-500"></span>
               <span className="text-[10px] font-semibold text-primary-700 tracking-[0.2em] uppercase">Professor & Admin</span>
             </div>
-            <h2 className="font-display text-3xl sm:text-4xl font-bold text-primary-800 leading-[1.05] tracking-tight">
+            <h2 className="font-display text-4xl sm:text-[42px] font-bold text-primary-800 leading-[1.05] tracking-tight">
               System<br/>
               <span className="text-primary-600">Login.</span>
             </h2>
-            <p className="text-primary-400 text-sm mt-1.5 leading-relaxed">
+            <p className="text-primary-400 text-[15px] mt-2 leading-relaxed">
               Sign in to manage attendance, scan QR codes, and view class records.
             </p>
           </div>
 
           {formError && (
-            <div className="reveal mb-6 flex items-start gap-2 px-4 py-3 rounded-nested bg-error-light border border-error/30">
+            <div className="animate-fade-up mb-6 flex items-start gap-2 px-4 py-3 rounded-nested bg-error-light border border-error/30">
               <i className="fas fa-circle-exclamation text-error mt-0.5 shrink-0"></i>
               <p className="text-sm text-error">{formError}</p>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} noValidate className="space-y-4">
+          <form onSubmit={handleSubmit} noValidate className="space-y-5 xl:space-y-6">
             <div className="reveal">
-              <label className="text-[10px] font-bold text-primary-400 uppercase tracking-[0.18em] mb-1.5 block">Email Address</label>
+              <label className="text-[11px] font-bold text-primary-400 uppercase tracking-[0.18em] mb-2 block">Email Address</label>
               <div className="relative">
                 <input 
                   type="email" 
@@ -326,7 +340,7 @@ export default function Login() {
             </div>
 
             <div className="reveal">
-              <label className="text-[10px] font-bold text-primary-400 uppercase tracking-[0.18em] mb-1.5 block">Password</label>
+              <label className="text-[11px] font-bold text-primary-400 uppercase tracking-[0.18em] mb-2 block">Password</label>
               <div className="relative">
                 <input 
                   type={showPassword ? "text" : "password"}
@@ -355,7 +369,7 @@ export default function Login() {
             <button 
               type="submit" 
               disabled={submitting}
-              className="login-btn-premium w-full py-3.5 rounded-xl text-white font-semibold flex items-center justify-center gap-2 reveal mt-2 disabled:opacity-80"
+              className="login-btn-premium w-full py-4 rounded-xl text-white font-semibold flex items-center justify-center gap-2 reveal mt-4 disabled:opacity-80 text-lg shadow-lg shadow-primary-900/20"
             >
               {submitting ? (
                 <><i className="fas fa-spinner fa-spin btn-text"></i><span className="btn-text">Authenticating…</span></>
@@ -364,10 +378,12 @@ export default function Login() {
               )}
             </button>
           </form>
+        </div>
 
-          <div className="reveal mt-6 pt-4 border-t border-primary-100 flex items-center justify-between text-[11px] text-primary-300">
-            <span>© 2026 JBLCF—Bacolod. All rights reserved.</span>
-          </div>
+        {/* Absolute Footer spanning the right panel */}
+        <div className="absolute bottom-6 left-0 w-full px-8 lg:px-12 flex items-center justify-between text-[12px] text-primary-300 z-10">
+          <span>© 2026 JBLCF—Bacolod. All rights reserved.</span>
+          <a href="#" className="hover:text-primary-600 transition-colors">Support</a>
         </div>
       </main>
     </div>
