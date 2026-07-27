@@ -1,6 +1,23 @@
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '').trim().replace(/\/+$/, '');
+
+export function resolveApiUrl(endpoint) {
+  if (/^(?:https?:|data:|blob:)/i.test(endpoint)) {
+    return endpoint;
+  }
+
+  if (!API_BASE_URL) {
+    return endpoint;
+  }
+
+  return endpoint.startsWith('/')
+    ? `${API_BASE_URL}${endpoint}`
+    : `${API_BASE_URL}/${endpoint}`;
+}
+
 export async function fetchApi(endpoint, options = {}) {
   const token = localStorage.getItem('token');
-  
+  const requestUrl = resolveApiUrl(endpoint);
+
   const headers = new Headers(options.headers || {});
   
   if (token) {
@@ -14,7 +31,7 @@ export async function fetchApi(endpoint, options = {}) {
     }
   }
 
-  const res = await fetch(endpoint, {
+  const res = await fetch(requestUrl, {
     ...options,
     headers,
   });

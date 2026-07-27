@@ -5,6 +5,7 @@ import Input from '../../components/Input.jsx';
 import QrCameraScanner from '../../components/QrCameraScanner.jsx';
 import { useToast } from '../../components/useToast.js';
 import { useAttendanceController } from '../../controllers/useAttendanceController.jsx';
+import { resolveApiUrl } from '../../api/client.js';
 import { useRef, useEffect } from 'react';
 import { createTimeline, createScope, svg } from 'animejs';
 
@@ -12,7 +13,7 @@ function StudentPhoto({ student }) {
   if (student.photo) {
     return (
       <img
-        src={student.photo}
+        src={resolveApiUrl(student.photo)}
         alt={student.fullName}
         className="h-24 w-24 rounded-container object-cover"
       />

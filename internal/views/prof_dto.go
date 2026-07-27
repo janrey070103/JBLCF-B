@@ -6,6 +6,7 @@ import (
 
 type ScanQRRequest struct {
 	QRToken string `json:"qrToken" validate:"required"`
+	ClassID int    `json:"classId" validate:"required,gt=0"`
 }
 
 type ApproveAttendanceRequest struct {

@@ -93,6 +93,10 @@ func CreateClass(w http.ResponseWriter, r *http.Request) {
 		sendError(w, http.StatusBadRequest, "Validation failed")
 		return
 	}
+	if err := validateScheduleTimeRange(req.Schedule); err != nil {
+		sendError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 
 	res, err := db.DB.Exec(`
 		INSERT INTO classes (code, title, professor_id, course_id, schedule, room) 
@@ -134,6 +138,10 @@ func UpdateClass(w http.ResponseWriter, r *http.Request) {
 
 	if err := utils.Validate.Struct(&req); err != nil {
 		sendError(w, http.StatusBadRequest, "Validation failed")
+		return
+	}
+	if err := validateScheduleTimeRange(req.Schedule); err != nil {
+		sendError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 

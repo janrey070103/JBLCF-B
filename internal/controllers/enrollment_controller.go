@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"jblcf-b/internal/db"
 	"jblcf-b/internal/middleware"
@@ -173,6 +174,29 @@ func GetClassRoster(w http.ResponseWriter, r *http.Request) {
 	if date == "" {
 		sendError(w, http.StatusBadRequest, "date query param required (YYYY-MM-DD)")
 		return
+	}
+
+	if date == time.Now().Format("2006-01-02") {
+		var classSchedule string
+		if err := db.DB.QueryRow(`SELECT schedule FROM classes WHERE id = ?`, classID).Scan(&classSchedule); err == nil {
+			now := time.Now()
+			_, sessionEnd, parseErr := parseClassSessionWindow(classSchedule, now)
+			if parseErr == nil && now.After(sessionEnd) {
+				_, _ = db.DB.Exec(`
+					INSERT INTO attendance_records (class_id, student_id, session_date, status, method, approval_status, note)
+					SELECT ce.class_id, ce.student_id, ?, ?, ?, true, ?
+					FROM class_enrollments ce
+					JOIN students s ON s.id = ce.student_id
+					LEFT JOIN attendance_records ar
+						ON ar.class_id = ce.class_id
+						AND ar.student_id = ce.student_id
+						AND ar.session_date = ?
+					WHERE ce.class_id = ?
+					  AND s.is_active = true
+					  AND ar.id IS NULL
+				`, date, models.Absent, "auto_absent", "Auto-marked absent: not scanned during class session", date, classID)
+			}
+		}
 	}
 
 	rows, err := db.DB.Query(`

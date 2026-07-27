@@ -131,10 +131,16 @@ export function useAttendanceController() {
   }, [records, search]);
 
   const lookupStudentByQr = useCallback(async (qrToken) => {
+	if (!selectedClassId) {
+	  const err = new Error('Select a class before scanning.');
+	  err.code = 'NO_CLASS';
+	  throw err;
+	}
+
     try {
       const response = await fetchApi('/api/prof/attendance/scan', {
         method: 'POST',
-        body: JSON.stringify({ qrToken })
+        body: JSON.stringify({ qrToken, classId: Number(selectedClassId) })
       });
       // response is StudentScanResponse (embeds Student and Course)
       return response;
@@ -143,7 +149,7 @@ export function useAttendanceController() {
       err.code = 'NOT_FOUND';
       throw err;
     }
-  }, []);
+  }, [selectedClassId]);
 
   const isAlreadyPresent = useCallback(
     (studentId) => records.some((record) => record.studentId === studentId),

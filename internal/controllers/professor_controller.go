@@ -60,6 +60,12 @@ func ScanQRCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	claims, ok := r.Context().Value(middleware.UserContextKey).(*utils.Claims)
+	if !ok {
+		sendError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
 	var req views.ScanQRRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		sendError(w, http.StatusBadRequest, "Invalid JSON payload")
@@ -71,8 +77,39 @@ func ScanQRCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var profID int
+	var classSchedule string
+	err := db.DB.QueryRow(`SELECT professor_id, schedule FROM classes WHERE id = ?`, req.ClassID).Scan(&profID, &classSchedule)
+	if err == sql.ErrNoRows {
+		sendError(w, http.StatusNotFound, "Class not found")
+		return
+	} else if err != nil {
+		sendError(w, http.StatusInternalServerError, "Database error")
+		return
+	}
+
+	if profID != claims.UserID {
+		sendError(w, http.StatusForbidden, "Forbidden: you do not have access to this class")
+		return
+	}
+
+	now := time.Now()
+	sessionStart, sessionEnd, err := parseClassSessionWindow(classSchedule, now)
+	if err != nil {
+		sendError(w, http.StatusBadRequest, "Class schedule is invalid. Use a time range like 9:00am-12:00pm.")
+		return
+	}
+	if now.Before(sessionStart) {
+		sendError(w, http.StatusForbidden, "Attendance scanning is not open yet for this class session")
+		return
+	}
+	if now.After(sessionEnd) {
+		sendError(w, http.StatusForbidden, "Attendance scanning is already closed for this class session")
+		return
+	}
+
 	var s models.Student
-	err := db.DB.QueryRow(`
+	err = db.DB.QueryRow(`
 		SELECT id, school_id, last_name, first_name, middle_name, suffix, full_name, email, phone, course_id, year_level, qr_token, photo, is_active, created_at 
 		FROM students WHERE qr_token = ? AND is_active = true
 	`, req.QRToken).Scan(
@@ -128,7 +165,8 @@ func ApproveAttendance(w http.ResponseWriter, r *http.Request) {
 
 	// Verify class belongs to professor
 	var profID int
-	err := db.DB.QueryRow(`SELECT professor_id FROM classes WHERE id = ?`, req.ClassID).Scan(&profID)
+	var classSchedule string
+	err := db.DB.QueryRow(`SELECT professor_id, schedule FROM classes WHERE id = ?`, req.ClassID).Scan(&profID, &classSchedule)
 	if err == sql.ErrNoRows {
 		sendError(w, http.StatusNotFound, "Class not found")
 		return
@@ -139,6 +177,21 @@ func ApproveAttendance(w http.ResponseWriter, r *http.Request) {
 
 	if profID != claims.UserID {
 		sendError(w, http.StatusForbidden, "Forbidden: you do not have access to this class")
+		return
+	}
+
+	now := time.Now()
+	sessionStart, sessionEnd, err := parseClassSessionWindow(classSchedule, now)
+	if err != nil {
+		sendError(w, http.StatusBadRequest, "Class schedule is invalid. Use a time range like 9:00am-12:00pm.")
+		return
+	}
+	if now.Before(sessionStart) {
+		sendError(w, http.StatusForbidden, "Attendance window is not open yet for this class session")
+		return
+	}
+	if now.After(sessionEnd) {
+		sendError(w, http.StatusForbidden, "Attendance window is already closed for this class session")
 		return
 	}
 
@@ -168,7 +221,7 @@ func ApproveAttendance(w http.ResponseWriter, r *http.Request) {
 	// Use the server's current date as the session date.
 	// A client-supplied date is intentionally not accepted to prevent
 	// backdating or future-dating attendance records.
-	sessionDate := time.Now().Format("2006-01-02")
+	sessionDate := now.Format("2006-01-02")
 
 	// Insert attendance record
 	res, err := db.DB.Exec(`

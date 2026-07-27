@@ -6,6 +6,8 @@ import { AttendanceListSkeleton } from '../../components/Skeletons.jsx';
 import Table from '../../components/Table.jsx';
 import { useAttendanceController } from '../../controllers/useAttendanceController.jsx';
 
+const today = () => new Date().toISOString().slice(0, 10);
+
 const formatTime = (value) => {
   if (!value) return 'Pending sync';
   return new Intl.DateTimeFormat('en-PH', {
@@ -24,6 +26,7 @@ export default function ClassAttendance() {
     setSessionDate,
     sessions,
     approvedStudents,
+    roster,
     loading,
     search,
     setSearch,
@@ -69,6 +72,58 @@ export default function ClassAttendance() {
     [],
   );
 
+  const rosterColumns = useMemo(
+    () => [
+      {
+        key: 'student',
+        header: 'Student',
+        render: (row) => (
+          <div>
+            <p className="font-semibold text-primary">{row.fullName}</p>
+            <p className="text-xs text-primary-400">{row.schoolId}</p>
+          </div>
+        ),
+      },
+      {
+        key: 'status',
+        header: 'Status',
+        render: (row) => {
+          const status = (row.attendanceStatus ?? 'absent').toLowerCase();
+          const tone =
+            status === 'present'
+              ? 'border-success/30 bg-success-light text-success'
+              : status === 'late'
+              ? 'border-secondary-500/30 bg-secondary-50 text-secondary-700'
+              : status === 'excused'
+              ? 'border-primary-200 bg-primary-50 text-primary-700'
+              : 'border-error/30 bg-error-light text-error';
+
+          return (
+            <span className={["inline-flex rounded-pill border px-2 py-0.5 text-xs font-semibold capitalize", tone].join(' ')}>
+              {status}
+            </span>
+          );
+        },
+      },
+      {
+        key: 'scannedAt',
+        header: 'Time',
+        render: (row) => formatTime(row.scannedAt),
+      },
+    ],
+    [],
+  );
+
+  const summary = useMemo(() => {
+    const base = { present: 0, late: 0, absent: 0, excused: 0 };
+    for (const row of roster) {
+      const status = (row.attendanceStatus ?? 'absent').toLowerCase();
+      if (status in base) base[status] += 1;
+      else base.absent += 1;
+    }
+    return base;
+  }, [roster]);
+
   return (
     <div className="space-y-4 animate-fade-up">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -84,7 +139,7 @@ export default function ClassAttendance() {
       </div>
 
       <Card title="Session Filters">
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-3">
           <div>
             <label htmlFor="attendance-class" className="mb-1 block text-sm font-medium text-primary-700">
               Class
@@ -103,8 +158,21 @@ export default function ClassAttendance() {
             </select>
           </div>
           <div>
+            <label htmlFor="attendance-date" className="mb-1 block text-sm font-medium text-primary-700">
+              Attendance Date
+            </label>
+            <input
+              id="attendance-date"
+              type="date"
+              value={sessionDate}
+              onChange={(event) => setSessionDate(event.target.value)}
+              max={today()}
+              className="block w-full rounded-nested border border-primary-200 bg-white px-3 py-2 text-base text-primary-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+          <div>
             <label htmlFor="attendance-session" className="mb-1 block text-sm font-medium text-primary-700">
-              Session
+              Quick Select Recorded Dates
             </label>
             <select
               id="attendance-session"
@@ -150,6 +218,33 @@ export default function ClassAttendance() {
           />
         </div>
       )}
+
+      <Card title="Daily Class Roster (Calendar View)">
+        <div className="mb-4 flex flex-wrap gap-3">
+          <span className="inline-flex items-center rounded-pill border border-primary-100 bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-700">
+            Total: {roster.length}
+          </span>
+          <span className="inline-flex items-center rounded-pill border border-success/30 bg-success-light px-3 py-1 text-xs font-semibold text-success">
+            Present: {summary.present}
+          </span>
+          <span className="inline-flex items-center rounded-pill border border-secondary-500/30 bg-secondary-50 px-3 py-1 text-xs font-semibold text-secondary-700">
+            Late: {summary.late}
+          </span>
+          <span className="inline-flex items-center rounded-pill border border-error/30 bg-error-light px-3 py-1 text-xs font-semibold text-error">
+            Absent: {summary.absent}
+          </span>
+          <span className="inline-flex items-center rounded-pill border border-primary-200 bg-white px-3 py-1 text-xs font-semibold text-primary-600">
+            Excused: {summary.excused}
+          </span>
+        </div>
+
+        <Table
+          columns={rosterColumns}
+          rows={roster}
+          rowKey={(row) => row.id}
+          emptyText="No enrolled students found for this class."
+        />
+      </Card>
     </div>
   );
 }

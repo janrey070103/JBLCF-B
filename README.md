@@ -120,7 +120,7 @@ The frontend starts on `https://localhost:5173` (HTTPS is required for camera ac
 
 > ⚠️ Your browser will show a self-signed certificate warning. Click **Advanced → Proceed** — this is expected in dev.
 
-> The Vite dev server proxies `/api/` and `/uploads/` requests to `http://localhost:8080` automatically. See `vite.config.js` for proxy config.
+> The Vite dev server proxies `/api/` and `/uploads/` requests to `http://localhost:8080` automatically. If your backend is running elsewhere, set `VITE_API_BASE_URL` in the frontend environment to point at that host instead.
 
 ---
 
@@ -135,6 +135,7 @@ The frontend starts on `https://localhost:5173` (HTTPS is required for camera ac
 | `DB_NAME` | MySQL database name | `jblcf_attendance` |
 | `JWT_SECRET` | **Required.** 32+ char random string for JWT signing | *(generate with `openssl rand -hex 32`)* |
 | `CORS_ALLOWED_ORIGINS` | Comma-separated allowed origins | `https://localhost:5173` *(must use https)* |
+| `VITE_API_BASE_URL` | Optional frontend API base URL for non-local backends | `http://your-api-host:8080` |
 
 ---
 
