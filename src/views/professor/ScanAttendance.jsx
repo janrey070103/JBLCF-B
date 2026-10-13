@@ -12,7 +12,11 @@ import { createTimeline, createScope, svg } from 'animejs';
 function StudentPhoto({ student }) {
   const [imgError, setImgError] = useState(false);
 
-  if (student.photo && !imgError) {
+  useEffect(() => {
+    setImgError(false);
+  }, [student?.photo]);
+
+  if (student?.photo && !imgError) {
     return (
       <img
         src={resolveApiUrl(student.photo)}

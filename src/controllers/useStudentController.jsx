@@ -85,9 +85,19 @@ export function useStudentController() {
   const save = useCallback(async (data) => {
     setSaving(true);
     try {
-      const { id, photo, ...payload } = data;
-      
-      // 1. Create or Update the JSON record
+      const { id, ...payload } = data;
+
+      // If photo is a File, convert to base64 DataURL
+      if (payload.photo instanceof File) {
+        payload.photo = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(payload.photo);
+        });
+      }
+
+      // 1. Create or Update the JSON record (including photo base64)
       let record;
       if (id) {
         await fetchApi(`/api/admin/students/${id}`, {
@@ -101,25 +111,6 @@ export function useStudentController() {
           body: JSON.stringify(payload),
         });
         record = { id: res.id, qrToken: res.qrToken, ...payload };
-      }
-
-      // 2. Upload photo if one was provided (as File OR base64 DataURL string)
-      if (photo) {
-        const photoFile =
-          photo instanceof File
-            ? photo
-            : typeof photo === 'string' && photo.startsWith('data:')
-              ? dataUrlToFile(photo)
-              : null;
-
-        if (photoFile) {
-          const formData = new FormData();
-          formData.append('photo', photoFile);
-          await fetchApi(`/api/admin/students/${record.id}/photo`, {
-            method: 'POST',
-            body: formData,
-          });
-        }
       }
 
       await refresh(); // re-fetch so list reflects the change
