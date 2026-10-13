@@ -6,7 +6,6 @@ import logo from '../../assets/logo.jpg';
 import Card from '../../components/Card.jsx';
 import { QrGenerationSkeleton } from '../../components/Skeletons.jsx';
 import { useStudentController } from '../../controllers/useStudentController.jsx';
-
 import { resolveApiUrl } from '../../api/client.js';
 
 export default function StudentQr() {
@@ -15,11 +14,13 @@ export default function StudentQr() {
   const { fetchById } = useStudentController();
   const [student, setStudent] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [imgError, setImgError] = useState(false);
 
   useEffect(() => {
     let alive = true;
     async function loadStudent() {
       setLoading(true);
+      setImgError(false);
       const record = await fetchById(Number(id));
       if (!alive) return;
       setStudent(record);
@@ -60,6 +61,17 @@ export default function StudentQr() {
           <p className="text-sm text-primary-400 mt-0.5">{student.fullName}</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2">
+          <Button
+            variant="secondary"
+            onClick={() => navigate(`/admin/students/${student.id}/edit`)}
+            fullWidth
+          >
+            <svg className="w-4 h-4 mr-1.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+            </svg>
+            Edit / Update Photo
+          </Button>
           <Button variant="tertiary" onClick={() => navigate('/admin/students')} fullWidth>
             Back to Students
           </Button>
@@ -80,10 +92,11 @@ export default function StudentQr() {
 
           {/* Card Body */}
           <div className="flex-1 flex items-center gap-3 px-3.5 py-2 min-h-0 bg-white">
-            {student.photo ? (
+            {student.photo && !imgError ? (
               <img
                 src={resolveApiUrl(student.photo)}
                 alt={student.fullName}
+                onError={() => setImgError(true)}
                 className="w-14 h-18 rounded-lg object-cover border-2 border-primary/20 shrink-0 bg-primary-50 shadow-sm"
               />
             ) : (

@@ -1,16 +1,6 @@
-// Facial capture component — uses navigator.mediaDevices.getUserMedia to
-// access the device camera (desktop webcam or phone front camera).
-// Provides: live preview, capture button, retake option, thumbnail preview.
-// Stores the captured frame as a base-64 data URL in local state.
-//
-// Props:
-//   onCapture(dataUrl)  — called when the user confirms the captured image
-//   initialPhoto        — pre-existing photo data URL (for edit mode)
-//
-// NOTE: getUserMedia requires HTTPS in production. On localhost HTTP works
-// per browser security policy. If camera is unavailable, a graceful fallback
-// message is shown (no crash).
-
+// Facial capture component — allows taking a photo via webcam or uploading
+// an image file directly from the device. Auto-commits the photo on capture
+// or file select so the parent form immediately has the image.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Button from './Button.jsx';
 import { resolveApiUrl } from '../api/client.js';
@@ -24,9 +14,18 @@ export default function FacialCapture({ onCapture, initialPhoto = null }) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
+  const fileInputRef = useRef(null);
   const [status, setStatus] = useState(initialPhoto ? CAPTURED : STOPPED);
   const [photo, setPhoto] = useState(initialPhoto);
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Sync state if initialPhoto changes asynchronously (e.g. on student fetch)
+  useEffect(() => {
+    if (initialPhoto) {
+      setPhoto(initialPhoto);
+      setStatus(CAPTURED);
+    }
+  }, [initialPhoto]);
 
   // ── Camera lifecycle ────────────────────────────────────────────────
   const startCamera = useCallback(async () => {
@@ -48,7 +47,7 @@ export default function FacialCapture({ onCapture, initialPhoto = null }) {
           audio: false,
         });
       } catch (initialErr) {
-        // Fallback to any camera if front camera is not explicitly found
+        // Fallback to any camera
         if (initialErr.name === 'NotAllowedError') throw initialErr;
         stream = await navigator.mediaDevices.getUserMedia({
           video: true,
@@ -60,14 +59,14 @@ export default function FacialCapture({ onCapture, initialPhoto = null }) {
       setStatus(STREAMING);
     } catch (err) {
       console.error('Camera access error:', err);
-      
-      let msg = 'Could not access the camera. Make sure a webcam is connected and try again.';
+
+      let msg = 'Could not access camera. You can upload an image file instead.';
       if (err.message === 'SECURE_CONTEXT_REQUIRED') {
-        msg = 'Camera access requires a secure connection (HTTPS) or localhost. If you are on mobile, use a secure tunnel or localhost port forwarding.';
+        msg = 'Camera access requires HTTPS or localhost. Please upload an image file from your device.';
       } else if (err.name === 'NotAllowedError') {
-        msg = 'Camera access was denied. Grant permission in your browser settings and try again.';
+        msg = 'Camera access was denied. Grant browser permission or upload an image file.';
       }
-      
+
       setErrorMsg(msg);
       setStatus(ERROR);
     }
@@ -86,21 +85,21 @@ export default function FacialCapture({ onCapture, initialPhoto = null }) {
   // Clean up on unmount
   useEffect(() => () => stopCamera(), [stopCamera]);
 
-  // Attach stream to video element once it's rendered
+  // Attach stream to video element once rendered
   useEffect(() => {
     if (status === STREAMING && videoRef.current && streamRef.current) {
       videoRef.current.srcObject = streamRef.current;
     }
   }, [status]);
 
-  // ── Capture ─────────────────────────────────────────────────────────
+  // ── Capture from Camera ─────────────────────────────────────────────
   const capture = useCallback(() => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas) return;
 
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
     const ctx = canvas.getContext('2d');
     ctx.drawImage(video, 0, 0);
 
@@ -108,22 +107,61 @@ export default function FacialCapture({ onCapture, initialPhoto = null }) {
     setPhoto(dataUrl);
     setStatus(CAPTURED);
     stopCamera();
-  }, [stopCamera]);
+    onCapture?.(dataUrl);
+  }, [onCapture, stopCamera]);
 
-  // ── Retake ──────────────────────────────────────────────────────────
+  // ── Upload from Device ──────────────────────────────────────────────
+  const handleFileChange = useCallback((e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setErrorMsg('Please select a valid image file (JPEG or PNG).');
+      setStatus(ERROR);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target.result;
+      setPhoto(dataUrl);
+      setStatus(CAPTURED);
+      setErrorMsg('');
+      stopCamera();
+      onCapture?.(dataUrl);
+    };
+    reader.readAsDataURL(file);
+    // Reset file input so selecting the same file again triggers change
+    e.target.value = '';
+  }, [onCapture, stopCamera]);
+
+  // ── Retake / Remove ─────────────────────────────────────────────────
   const retake = useCallback(() => {
     setPhoto(null);
     startCamera();
   }, [startCamera]);
 
-  const confirm = useCallback(() => {
-    if (photo) onCapture?.(photo);
-  }, [onCapture, photo]);
+  const removePhoto = useCallback(() => {
+    setPhoto(null);
+    setStatus(STOPPED);
+    setErrorMsg('');
+    stopCamera();
+    onCapture?.(null);
+  }, [onCapture, stopCamera]);
 
   return (
     <div className="w-full space-y-3">
       {/* Hidden canvas for frame capture */}
       <canvas ref={canvasRef} className="hidden" />
+
+      {/* Hidden file input for uploading from device */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="hidden"
+        onChange={handleFileChange}
+      />
 
       {/* Camera preview */}
       {status === STREAMING && (
@@ -135,8 +173,15 @@ export default function FacialCapture({ onCapture, initialPhoto = null }) {
             muted
             className="w-full h-full object-cover"
           />
-          {/* Capture button overlay */}
-          <div className="absolute inset-x-0 bottom-0 flex justify-center pb-3">
+          {/* Controls overlay */}
+          <div className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-4 pb-4 bg-gradient-to-t from-black/60 to-transparent pt-6">
+            <button
+              type="button"
+              onClick={() => { stopCamera(); setStatus(photo ? CAPTURED : STOPPED); }}
+              className="px-3 py-1.5 rounded-lg bg-white/20 text-white text-xs font-medium hover:bg-white/30 backdrop-blur"
+            >
+              Cancel
+            </button>
             <button
               type="button"
               onClick={capture}
@@ -149,23 +194,32 @@ export default function FacialCapture({ onCapture, initialPhoto = null }) {
 
       {/* Captured thumbnail */}
       {status === CAPTURED && photo && (
-        <div className="space-y-2">
-          <div className="w-full aspect-[4/3] rounded-container overflow-hidden bg-primary-50 border border-primary-100">
+        <div className="space-y-3">
+          <div className="relative w-48 mx-auto aspect-[3/4] rounded-container overflow-hidden bg-primary-50 border-2 border-primary/20 shadow-sm">
             <img
               src={resolveApiUrl(photo)}
               alt="Captured photo"
               className="w-full h-full object-cover"
             />
-          </div>
-          <div className="flex justify-center">
-            <div className="flex flex-col sm:flex-row gap-2">
-              <Button type="button" variant="tertiary" size="sm" onClick={retake}>
-                Retake photo
-              </Button>
-              <Button type="button" variant="secondary" size="sm" onClick={confirm}>
-                Use photo
-              </Button>
+            <div className="absolute top-2 right-2 bg-emerald-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow">
+              ✓ Attached
             </div>
+          </div>
+          <div className="flex flex-wrap justify-center gap-2">
+            <Button type="button" variant="tertiary" size="sm" onClick={retake}>
+              Retake Camera
+            </Button>
+            <Button
+              type="button"
+              variant="tertiary"
+              size="sm"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              Upload Different File
+            </Button>
+            <Button type="button" variant="danger" size="sm" onClick={removePhoto}>
+              Remove Photo
+            </Button>
           </div>
         </div>
       )}
@@ -186,33 +240,52 @@ export default function FacialCapture({ onCapture, initialPhoto = null }) {
             <path d="M18 6 6 18M6 6l12 12" />
           </svg>
           <p className="text-sm text-error">{errorMsg}</p>
-          <Button type="button" variant="tertiary" size="sm" onClick={startCamera}>
-            Try again
-          </Button>
+          <div className="flex flex-wrap gap-2 justify-center">
+            <Button type="button" variant="secondary" size="sm" onClick={() => fileInputRef.current?.click()}>
+              Upload photo from device
+            </Button>
+            <Button type="button" variant="tertiary" size="sm" onClick={startCamera}>
+              Try camera again
+            </Button>
+          </div>
         </div>
       )}
 
-      {/* Stopped / initial state — prompt to start */}
-      {status === STOPPED && !initialPhoto && (
+      {/* Stopped / initial state */}
+      {status === STOPPED && !photo && (
         <div className="flex flex-col items-center gap-3 p-6 rounded-container border border-primary-200 bg-primary-50/50 text-center">
-          <svg
-            aria-hidden="true"
-            width="40"
-            height="40"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            className="text-primary-300"
-          >
-            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2zM8 14a4 4 0 1 0 8 0 4 4 0 0 0-8 0Z" />
-          </svg>
-          <p className="text-sm text-primary-500">
-            Take a photo for the student ID card
-          </p>
-          <Button type="button" variant="secondary" size="sm" onClick={startCamera}>
-            Open camera
-          </Button>
+          <div className="w-12 h-12 rounded-full bg-primary-100 flex items-center justify-center text-primary-600">
+            <svg
+              aria-hidden="true"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2zM8 14a4 4 0 1 0 8 0 4 4 0 0 0-8 0Z" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-primary">Add Student Photo</p>
+            <p className="text-xs text-primary-400 mt-0.5">
+              Take a photo using your webcam or upload an existing image file from your device
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2 justify-center pt-1">
+            <Button type="button" variant="secondary" size="sm" onClick={startCamera}>
+              Open Camera
+            </Button>
+            <Button
+              type="button"
+              variant="tertiary"
+              size="sm"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              Upload Photo File
+            </Button>
+          </div>
         </div>
       )}
     </div>
