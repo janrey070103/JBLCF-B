@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -152,9 +153,9 @@ func CreateStudent(w http.ResponseWriter, r *http.Request) {
 	qrToken := uuid.New().String()
 
 	res, err := db.DB.Exec(`
-		INSERT INTO students (school_id, last_name, first_name, middle_name, suffix, full_name, email, phone, course_id, year_level, qr_token) 
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		req.SchoolID, req.LastName, req.FirstName, req.MiddleName, req.Suffix, fullName, req.Email, req.Phone, req.CourseID, req.YearLevel, qrToken,
+		INSERT INTO students (school_id, last_name, first_name, middle_name, suffix, full_name, email, phone, course_id, year_level, qr_token, photo) 
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		req.SchoolID, req.LastName, req.FirstName, req.MiddleName, req.Suffix, fullName, req.Email, req.Phone, req.CourseID, req.YearLevel, qrToken, req.Photo,
 	)
 	if err != nil {
 		if strings.Contains(err.Error(), "Duplicate entry") {
@@ -203,9 +204,9 @@ func UpdateStudent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, err = db.DB.Exec(`
-		UPDATE students SET last_name=?, first_name=?, middle_name=?, suffix=?, full_name=?, email=?, phone=?, course_id=?, year_level=?, is_active=COALESCE(?, is_active)
+		UPDATE students SET last_name=?, first_name=?, middle_name=?, suffix=?, full_name=?, email=?, phone=?, course_id=?, year_level=?, is_active=COALESCE(?, is_active), photo=COALESCE(?, photo)
 		WHERE id = ?`,
-		req.LastName, req.FirstName, req.MiddleName, req.Suffix, fullName, req.Email, req.Phone, req.CourseID, req.YearLevel, req.IsActive, id,
+		req.LastName, req.FirstName, req.MiddleName, req.Suffix, fullName, req.Email, req.Phone, req.CourseID, req.YearLevel, req.IsActive, req.Photo, id,
 	)
 	if err != nil {
 		sendError(w, http.StatusInternalServerError, "Database error")
@@ -297,32 +298,24 @@ func UploadStudentPhoto(w http.ResponseWriter, r *http.Request) {
 
 	filename := uuid.New().String() + ext
 	
-	if err := os.MkdirAll("uploads", os.ModePerm); err != nil {
-		sendError(w, http.StatusInternalServerError, "Failed to create uploads directory")
-		return
-	}
-	
-	uploadPath := filepath.Join("uploads", filename)
-
-	out, err := os.Create(uploadPath)
+	fileBytes, err := io.ReadAll(file)
 	if err != nil {
-		sendError(w, http.StatusInternalServerError, "Failed to save file")
-		return
-	}
-	defer out.Close()
-
-	if _, err := io.Copy(out, file); err != nil {
-		sendError(w, http.StatusInternalServerError, "Failed to copy file")
+		sendError(w, http.StatusInternalServerError, "Failed to read file")
 		return
 	}
 
-	dbPath := fmt.Sprintf("/uploads/%s", filename)
-	_, err = db.DB.Exec(`UPDATE students SET photo = ? WHERE id = ?`, dbPath, id)
+	base64Data := fmt.Sprintf("data:%s;base64,%s", contentType, base64.StdEncoding.EncodeToString(fileBytes))
+	_, err = db.DB.Exec(`UPDATE students SET photo = ? WHERE id = ?`, base64Data, id)
 	if err != nil {
 		sendError(w, http.StatusInternalServerError, "Failed to update database")
 		return
 	}
 
+	// Also write to local uploads directory as backup
+	_ = os.MkdirAll("uploads", os.ModePerm)
+	uploadPath := filepath.Join("uploads", filename)
+	_ = os.WriteFile(uploadPath, fileBytes, 0644)
+
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "uploaded", "path": dbPath})
+	json.NewEncoder(w).Encode(map[string]string{"status": "uploaded", "path": base64Data})
 }

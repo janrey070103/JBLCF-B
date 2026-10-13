@@ -22,6 +22,7 @@ type CreateStudentRequest struct {
 	Phone      *string `json:"phone"`
 	CourseID   int     `json:"courseId" validate:"required,gt=0"`
 	YearLevel  *int    `json:"yearLevel"`
+	Photo      *string `json:"photo"`
 }
 
 type UpdateStudentRequest struct {
@@ -34,4 +35,5 @@ type UpdateStudentRequest struct {
 	CourseID   int     `json:"courseId" validate:"required,gt=0"`
 	YearLevel  *int    `json:"yearLevel"`
 	IsActive   *bool   `json:"isActive"`
+	Photo      *string `json:"photo"`
 }

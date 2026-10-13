@@ -10,12 +10,15 @@ import { useRef, useEffect } from 'react';
 import { createTimeline, createScope, svg } from 'animejs';
 
 function StudentPhoto({ student }) {
-  if (student.photo) {
+  const [imgError, setImgError] = useState(false);
+
+  if (student.photo && !imgError) {
     return (
       <img
         src={resolveApiUrl(student.photo)}
         alt={student.fullName}
-        className="h-24 w-24 rounded-container object-cover"
+        onError={() => setImgError(true)}
+        className="h-24 w-24 rounded-container object-cover border-2 border-primary/20 shadow-sm"
       />
     );
   }
@@ -29,7 +32,7 @@ function StudentPhoto({ student }) {
     .toUpperCase();
 
   return (
-    <div className="grid h-24 w-24 place-items-center rounded-container bg-primary-50 text-2xl font-bold text-primary">
+    <div className="grid h-24 w-24 place-items-center rounded-container bg-primary-50 text-2xl font-bold text-primary border-2 border-dashed border-primary/30">
       {initials || 'ST'}
     </div>
   );

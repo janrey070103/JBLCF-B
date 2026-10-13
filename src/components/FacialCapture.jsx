@@ -123,15 +123,40 @@ export default function FacialCapture({ onCapture, initialPhoto = null }) {
 
     const reader = new FileReader();
     reader.onload = (event) => {
-      const dataUrl = event.target.result;
-      setPhoto(dataUrl);
-      setStatus(CAPTURED);
-      setErrorMsg('');
-      stopCamera();
-      onCapture?.(dataUrl);
+      const img = new Image();
+      img.onload = () => {
+        const canvas = canvasRef.current || document.createElement('canvas');
+        const MAX_SIZE = 400;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_SIZE) {
+            height = Math.round((height * MAX_SIZE) / width);
+            width = MAX_SIZE;
+          }
+        } else {
+          if (height > MAX_SIZE) {
+            width = Math.round((width * MAX_SIZE) / height);
+            height = MAX_SIZE;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+        setPhoto(dataUrl);
+        setStatus(CAPTURED);
+        setErrorMsg('');
+        stopCamera();
+        onCapture?.(dataUrl);
+      };
+      img.src = event.target.result;
     };
     reader.readAsDataURL(file);
-    // Reset file input so selecting the same file again triggers change
     e.target.value = '';
   }, [onCapture, stopCamera]);
 
