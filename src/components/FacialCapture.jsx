@@ -13,6 +13,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Button from './Button.jsx';
+import { resolveApiUrl } from '../api/client.js';
 
 const STOPPED = 'stopped';
 const STREAMING = 'streaming';
@@ -151,7 +152,7 @@ export default function FacialCapture({ onCapture, initialPhoto = null }) {
         <div className="space-y-2">
           <div className="w-full aspect-[4/3] rounded-container overflow-hidden bg-primary-50 border border-primary-100">
             <img
-              src={photo}
+              src={resolveApiUrl(photo)}
               alt="Captured photo"
               className="w-full h-full object-cover"
             />

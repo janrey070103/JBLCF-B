@@ -35,7 +35,7 @@ func main() {
 
 	// 5. Start the server, wrapped with CORS middleware.
 	// Allowed origins are read from CORS_ALLOWED_ORIGINS in .env.
-	port := config.GetEnv("SERVER_PORT", "8080")
+	port := config.GetEnv("PORT", config.GetEnv("SERVER_PORT", "8080"))
 	addr := fmt.Sprintf(":%s", port)
 
 	log.Printf("Server starting on port %s...\n", port)
