@@ -10,6 +10,14 @@ import (
 
 var timeTokenRegex = regexp.MustCompile(`(?i)\b\d{1,2}(?::\d{2})?\s*(?:am|pm)?\b`)
 
+// ManilaLocation represents Philippine Standard Time (PST, UTC+8) for JBLCF Bacolod.
+var ManilaLocation = time.FixedZone("Asia/Manila", 8*3600)
+
+// NowInManila returns the current time in Philippine Standard Time.
+func NowInManila() time.Time {
+	return time.Now().In(ManilaLocation)
+}
+
 func parseClockToken(token string) (int, int, error) {
 	normalized := strings.ToLower(strings.TrimSpace(token))
 	normalized = strings.ReplaceAll(normalized, " ", "")

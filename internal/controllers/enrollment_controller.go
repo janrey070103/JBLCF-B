@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"jblcf-b/internal/db"
 	"jblcf-b/internal/middleware"
@@ -176,10 +175,10 @@ func GetClassRoster(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if date == time.Now().Format("2006-01-02") {
+	now := NowInManila()
+	if date == now.Format("2006-01-02") {
 		var classSchedule string
 		if err := db.DB.QueryRow(`SELECT schedule FROM classes WHERE id = ?`, classID).Scan(&classSchedule); err == nil {
-			now := time.Now()
 			_, sessionEnd, parseErr := parseClassSessionWindow(classSchedule, now)
 			if parseErr == nil && now.After(sessionEnd) {
 				_, _ = db.DB.Exec(`

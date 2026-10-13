@@ -165,7 +165,7 @@ func ApproveAttendance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	now := time.Now()
+	now := NowInManila()
 	status := models.Present
 	note := ""
 	sessionStart, sessionEnd, errWindow := parseClassSessionWindow(classSchedule, now)
