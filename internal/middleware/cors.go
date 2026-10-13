@@ -7,36 +7,26 @@ import (
 )
 
 // CORSMiddleware adds cross-origin headers to every response.
-//
-// Allowed origins: controlled via the CORS_ALLOWED_ORIGINS environment
-// variable as a comma-separated list (e.g. "http://localhost:5173").
-// If the variable is not set, the server defaults to allowing only the
-// same origin (no header is emitted), which is safe for production.
-//
-// This is NOT a wildcard CORS policy. Each request's Origin header is
-// checked against the allow-list, so only listed origins gain access to
-// authenticated endpoints.
 func CORSMiddleware(next http.Handler) http.Handler {
-	// Parse allow-list once at startup.
-	rawOrigins := os.Getenv("CORS_ALLOWED_ORIGINS")
-	allowed := map[string]bool{}
-	for _, o := range strings.Split(rawOrigins, ",") {
-		o = strings.TrimSpace(o)
-		if o != "" {
-			allowed[o] = true
-		}
-	}
-
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
 
-		if origin != "" && allowed[origin] {
+		if origin != "" && isOriginAllowed(origin) {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
-			// Cache preflight for 10 minutes.
-			w.Header().Set("Access-Control-Max-Age", "600")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+
+			reqHeaders := r.Header.Get("Access-Control-Request-Headers")
+			if reqHeaders != "" {
+				w.Header().Set("Access-Control-Allow-Headers", reqHeaders)
+			} else {
+				w.Header().Set("Access-Control-Allow-Headers", "Accept, Authorization, Content-Type, X-CSRF-Token, X-Requested-With")
+			}
+
+			w.Header().Set("Access-Control-Max-Age", "86400")
+			w.Header().Add("Vary", "Origin")
+			w.Header().Add("Vary", "Access-Control-Request-Method")
+			w.Header().Add("Vary", "Access-Control-Request-Headers")
 		}
 
 		// Handle preflight OPTIONS request.
@@ -47,4 +37,33 @@ func CORSMiddleware(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+func isOriginAllowed(origin string) bool {
+	rawOrigins := os.Getenv("CORS_ALLOWED_ORIGINS")
+	// If not configured, or set to wildcard "*", allow all origins
+	if rawOrigins == "" || rawOrigins == "*" {
+		return true
+	}
+
+	cleanOrigin := strings.TrimRight(strings.ToLower(origin), "/")
+
+	// Automatically allow local development and vercel deployments
+	if cleanOrigin == "http://localhost:5173" ||
+		cleanOrigin == "http://localhost:3000" ||
+		cleanOrigin == "http://127.0.0.1:5173" ||
+		cleanOrigin == "http://127.0.0.1:3000" ||
+		strings.HasSuffix(cleanOrigin, ".vercel.app") {
+		return true
+	}
+
+	// Check against comma-separated list
+	for _, o := range strings.Split(rawOrigins, ",") {
+		o = strings.TrimRight(strings.TrimSpace(strings.ToLower(o)), "/")
+		if o == "*" || o == cleanOrigin {
+			return true
+		}
+	}
+
+	return false
 }
