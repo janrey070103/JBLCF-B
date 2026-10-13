@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
+import Modal from '../../components/Modal.jsx';
 import Input from '../../components/Input.jsx';
 import QrCameraScanner from '../../components/QrCameraScanner.jsx';
 import { useToast } from '../../components/useToast.js';
@@ -93,6 +94,7 @@ export default function ScanAttendance() {
     roster,
     lookupStudentByQr,
     approveAttendance,
+    deleteAttendance,
     isAlreadyPresent,
     isEnrolledInSelectedClass,
     saving,
@@ -103,6 +105,29 @@ export default function ScanAttendance() {
   const [approved, setApproved] = useState(false);
   const [manualQr, setManualQr] = useState('');
   const [rosterSearch, setRosterSearch] = useState('');
+  const [studentToRemove, setStudentToRemove] = useState(null);
+  const [removing, setRemoving] = useState(false);
+
+  const handleConfirmRemove = async () => {
+    if (!studentToRemove) return;
+    setRemoving(true);
+    try {
+      await deleteAttendance({
+        studentId: studentToRemove.id,
+        attendanceId: studentToRemove.attendanceRecordId,
+      });
+      if (verification?.id === studentToRemove.id) {
+        setApproved(false);
+        setEdgeState(null);
+      }
+      toast.success(`Removed attendance for ${studentToRemove.fullName}`);
+    } catch (err) {
+      toast.error(err.message || 'Failed to remove attendance');
+    } finally {
+      setRemoving(false);
+      setStudentToRemove(null);
+    }
+  };
   
   const verificationRootRef = useRef(null);
   const verificationScopeRef = useRef(null);
@@ -306,7 +331,7 @@ export default function ScanAttendance() {
                   )}
                 </div>
 
-                <div className="sticky bottom-0 border-t border-primary-100 bg-white/95 p-4 backdrop-blur sm:static sm:backdrop-blur-0">
+                <div className="sticky bottom-0 border-t border-primary-100 bg-white/95 p-4 backdrop-blur sm:static sm:backdrop-blur-0 flex flex-col sm:flex-row gap-2">
                   <Button
                     type="button"
                     fullWidth
@@ -314,10 +339,21 @@ export default function ScanAttendance() {
                     loading={saving}
                     disabled={approved || isAlreadyPresent(verification.id)}
                     onClick={handleApprove}
-                    className="approve-button opacity-0"
+                    className="approve-button opacity-0 flex-1"
                   >
                     {approved ? 'Attendance Approved' : 'Approve Attendance'}
                   </Button>
+                  {(approved || isAlreadyPresent(verification.id)) && (
+                    <Button
+                      type="button"
+                      variant="danger"
+                      size="lg"
+                      onClick={() => setStudentToRemove(verification)}
+                      className="shrink-0"
+                    >
+                      Remove
+                    </Button>
+                  )}
                 </div>
               </Card>
             </div>
@@ -399,12 +435,29 @@ export default function ScanAttendance() {
                       <p className="text-xs text-primary-400">{student.schoolId}</p>
                     </div>
                   </div>
-                  <div className="shrink-0 flex flex-col items-end gap-0.5">
-                    <StatusBadge status={student.attendanceStatus} />
-                    {student.scannedAt && (
-                      <span className="text-xs text-primary-400">
-                        {new Date(student.scannedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
+                  <div className="shrink-0 flex items-center gap-2">
+                    <div className="flex flex-col items-end gap-0.5">
+                      <StatusBadge status={student.attendanceStatus} />
+                      {student.scannedAt && (
+                        <span className="text-xs text-primary-400">
+                          {new Date(student.scannedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      )}
+                    </div>
+                    {(student.attendanceStatus === 'present' || student.attendanceStatus === 'late') && (
+                      <button
+                        type="button"
+                        onClick={() => setStudentToRemove(student)}
+                        className="p-1.5 rounded-lg text-primary-400 hover:text-error hover:bg-error-light/50 transition-colors"
+                        title={`Remove ${student.fullName}'s attendance`}
+                        aria-label={`Remove attendance for ${student.fullName}`}
+                      >
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                          <line x1="10" y1="11" x2="10" y2="17" />
+                          <line x1="14" y1="11" x2="14" y2="17" />
+                        </svg>
+                      </button>
                     )}
                   </div>
                 </div>
@@ -412,6 +465,44 @@ export default function ScanAttendance() {
             </div>
           )}
         </Card>
+      )}
+
+      {/* Confirmation modal for removing attendance */}
+      {studentToRemove && (
+        <Modal
+          open={!!studentToRemove}
+          onClose={() => setStudentToRemove(null)}
+          title="Remove Attendance Record"
+          size="sm"
+          footer={
+            <>
+              <Button
+                variant="tertiary"
+                onClick={() => setStudentToRemove(null)}
+                disabled={removing}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                onClick={handleConfirmRemove}
+                loading={removing}
+              >
+                Yes, Remove Record
+              </Button>
+            </>
+          }
+        >
+          <div className="space-y-2">
+            <p className="text-sm text-primary-700">
+              Are you sure you want to remove the attendance record for{' '}
+              <span className="font-semibold text-primary">{studentToRemove.fullName}</span>?
+            </p>
+            <p className="text-xs text-primary-400">
+              This student will be marked as absent for this session and can be scanned again.
+            </p>
+          </div>
+        </Modal>
       )}
     </div>
   );

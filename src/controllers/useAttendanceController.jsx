@@ -97,6 +97,10 @@ export function useAttendanceController() {
   useEffect(() => {
     const onAttendanceUpdate = (event) => {
       const record = event.detail;
+      if (record?.removed) {
+        setRecords((current) => current.filter((item) => item.studentId !== record.studentId));
+        return;
+      }
       if (
         record?.classId === Number(selectedClassId) &&
         record?.date === sessionDate
@@ -207,6 +211,34 @@ export function useAttendanceController() {
     }
   }, [isAlreadyPresent, selectedClass, sessionDate]);
 
+  const deleteAttendance = useCallback(async ({ attendanceId, studentId, classId, date }) => {
+    const targetClassId = classId || selectedClassId;
+    const targetDate = date || sessionDate;
+
+    let url;
+    if (attendanceId) {
+      url = `/api/prof/attendance/${attendanceId}`;
+    } else if (targetClassId && studentId && targetDate) {
+      url = `/api/prof/attendance?classId=${targetClassId}&studentId=${studentId}&date=${targetDate}`;
+    } else {
+      throw new Error('Missing parameters to remove attendance');
+    }
+
+    setSaving(true);
+    try {
+      await fetchApi(url, { method: 'DELETE' });
+      await refreshAttendance();
+      emitAttendanceUpdate({
+        classId: targetClassId,
+        date: targetDate,
+        studentId: studentId,
+        removed: true,
+      });
+    } finally {
+      setSaving(false);
+    }
+  }, [refreshAttendance, selectedClassId, sessionDate]);
+
   return {
     classes,
     selectedClass,
@@ -223,6 +255,7 @@ export function useAttendanceController() {
     setSearch,
     lookupStudentByQr,
     approveAttendance,
+    deleteAttendance,
     isAlreadyPresent,
     // A student is enrolled if they appear in the class roster fetched from the backend.
     isEnrolledInSelectedClass: (student) => {

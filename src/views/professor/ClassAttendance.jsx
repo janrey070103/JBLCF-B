@@ -1,6 +1,7 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
+import Modal from '../../components/Modal.jsx';
 import { SearchInput } from '../../components/Input.jsx';
 import { AttendanceListSkeleton } from '../../components/Skeletons.jsx';
 import Table from '../../components/Table.jsx';
@@ -31,7 +32,29 @@ export default function ClassAttendance() {
     search,
     setSearch,
     refreshAttendance,
+    deleteAttendance,
   } = useAttendanceController();
+
+  const [recordToRemove, setRecordToRemove] = useState(null);
+  const [removing, setRemoving] = useState(false);
+
+  const confirmRemove = async () => {
+    if (!recordToRemove) return;
+    setRemoving(true);
+    try {
+      await deleteAttendance({
+        attendanceId: recordToRemove.attendanceId,
+        studentId: recordToRemove.studentId,
+        classId: selectedClassId,
+        date: sessionDate,
+      });
+    } catch (e) {
+      console.error('Failed to remove attendance record:', e);
+    } finally {
+      setRemoving(false);
+      setRecordToRemove(null);
+    }
+  };
 
   const columns = useMemo(
     () => [
@@ -40,8 +63,8 @@ export default function ClassAttendance() {
         header: 'Student',
         render: (row) => (
           <div>
-            <p className="font-semibold text-primary">{row.student.fullName}</p>
-            <p className="text-xs text-primary-400">{row.student.schoolId}</p>
+            <p className="font-semibold text-primary">{row.student?.fullName || row.fullName}</p>
+            <p className="text-xs text-primary-400">{row.student?.schoolId || row.schoolId}</p>
           </div>
         ),
       },
@@ -67,6 +90,26 @@ export default function ClassAttendance() {
         key: 'scannedAt',
         header: 'Time',
         render: (row) => formatTime(row.scannedAt),
+      },
+      {
+        key: 'actions',
+        header: '',
+        className: 'text-right',
+        render: (row) => (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setRecordToRemove({
+              attendanceId: row.id,
+              studentId: row.studentId || row.student?.id,
+              name: row.student?.fullName || 'Student',
+            })}
+            className="text-error hover:bg-error-light hover:text-error text-xs"
+          >
+            Remove
+          </Button>
+        ),
       },
     ],
     [],
@@ -109,6 +152,29 @@ export default function ClassAttendance() {
         key: 'scannedAt',
         header: 'Time',
         render: (row) => formatTime(row.scannedAt),
+      },
+      {
+        key: 'actions',
+        header: '',
+        className: 'text-right',
+        render: (row) => {
+          if (row.attendanceStatus !== 'present' && row.attendanceStatus !== 'late') return null;
+          return (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setRecordToRemove({
+                attendanceId: row.attendanceRecordId,
+                studentId: row.id,
+                name: row.fullName,
+              })}
+              className="text-error hover:bg-error-light hover:text-error text-xs"
+            >
+              Remove
+            </Button>
+          );
+        },
       },
     ],
     [],
@@ -245,6 +311,44 @@ export default function ClassAttendance() {
           emptyText="No enrolled students found for this class."
         />
       </Card>
+
+      {/* Confirmation modal for removing attendance */}
+      {recordToRemove && (
+        <Modal
+          open={!!recordToRemove}
+          onClose={() => setRecordToRemove(null)}
+          title="Remove Attendance Record"
+          size="sm"
+          footer={
+            <>
+              <Button
+                variant="tertiary"
+                onClick={() => setRecordToRemove(null)}
+                disabled={removing}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                onClick={confirmRemove}
+                loading={removing}
+              >
+                Yes, Remove Record
+              </Button>
+            </>
+          }
+        >
+          <div className="space-y-2">
+            <p className="text-sm text-primary-700">
+              Are you sure you want to remove the attendance record for{' '}
+              <span className="font-semibold text-primary">{recordToRemove.name}</span>?
+            </p>
+            <p className="text-xs text-primary-400">
+              This will remove their present/late mark and revert their status for this session.
+            </p>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

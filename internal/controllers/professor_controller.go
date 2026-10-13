@@ -313,3 +313,98 @@ func GetClassAttendance(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(records)
 }
+
+func DeleteAttendanceRecord(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	claims, ok := r.Context().Value(middleware.UserContextKey).(*utils.Claims)
+	if !ok {
+		sendError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	parts := strings.Split(strings.TrimRight(r.URL.Path, "/"), "/")
+	lastSegment := parts[len(parts)-1]
+
+	// 1. If path ends with record ID (e.g. /api/prof/attendance/123)
+	if id, err := strconv.Atoi(lastSegment); err == nil && id > 0 {
+		var profID int
+		err := db.DB.QueryRow(`
+			SELECT c.professor_id 
+			FROM attendance_records ar
+			JOIN classes c ON ar.class_id = c.id
+			WHERE ar.id = ?
+		`, id).Scan(&profID)
+		if err == sql.ErrNoRows {
+			sendError(w, http.StatusNotFound, "Attendance record not found")
+			return
+		} else if err != nil {
+			sendError(w, http.StatusInternalServerError, "Database error")
+			return
+		}
+
+		if claims.Role != models.Superadmin && profID != claims.UserID {
+			sendError(w, http.StatusForbidden, "Forbidden: you do not have permission to delete this attendance record")
+			return
+		}
+
+		_, err = db.DB.Exec(`DELETE FROM attendance_records WHERE id = ?`, id)
+		if err != nil {
+			sendError(w, http.StatusInternalServerError, "Failed to delete attendance record")
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "deleted"})
+		return
+	}
+
+	// 2. Query param based deletion: ?classId=1&studentId=2&date=2026-10-13
+	q := r.URL.Query()
+	classID, err1 := strconv.Atoi(q.Get("classId"))
+	studentID, err2 := strconv.Atoi(q.Get("studentId"))
+	date := q.Get("date")
+
+	if err1 != nil || err2 != nil || date == "" {
+		sendError(w, http.StatusBadRequest, "Provide attendance ID in URL path or classId, studentId, and date query parameters")
+		return
+	}
+
+	var profID int
+	err := db.DB.QueryRow(`SELECT professor_id FROM classes WHERE id = ?`, classID).Scan(&profID)
+	if err == sql.ErrNoRows {
+		sendError(w, http.StatusNotFound, "Class not found")
+		return
+	} else if err != nil {
+		sendError(w, http.StatusInternalServerError, "Database error")
+		return
+	}
+
+	if claims.Role != models.Superadmin && profID != claims.UserID {
+		sendError(w, http.StatusForbidden, "Forbidden: you do not have access to this class")
+		return
+	}
+
+	res, err := db.DB.Exec(`
+		DELETE FROM attendance_records 
+		WHERE class_id = ? AND student_id = ? AND session_date = ?
+	`, classID, studentID, date)
+	if err != nil {
+		sendError(w, http.StatusInternalServerError, "Failed to delete attendance record")
+		return
+	}
+
+	rowsAffected, _ := res.RowsAffected()
+	if rowsAffected == 0 {
+		sendError(w, http.StatusNotFound, "No matching attendance record found to delete")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "deleted"})
+}

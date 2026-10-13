@@ -202,7 +202,8 @@ func GetClassRoster(w http.ResponseWriter, r *http.Request) {
 		SELECT
 			s.id, s.school_id, s.full_name, s.photo, s.course_id,
 			COALESCE(ar.status, 'absent') AS attendance_status,
-			ar.scanned_at
+			ar.scanned_at,
+			ar.id
 		FROM class_enrollments ce
 		JOIN students s ON ce.student_id = s.id
 		LEFT JOIN attendance_records ar ON ar.student_id = s.id AND ar.class_id = ce.class_id AND ar.session_date = ?
@@ -216,19 +217,20 @@ func GetClassRoster(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 
 	type RosterEntry struct {
-		ID               int     `json:"id"`
-		SchoolID         string  `json:"schoolId"`
-		FullName         string  `json:"fullName"`
-		Photo            *string `json:"photo,omitempty"`
-		CourseID         int     `json:"courseId"`
-		AttendanceStatus string  `json:"attendanceStatus"`
-		ScannedAt        *string `json:"scannedAt,omitempty"`
+		ID                 int     `json:"id"`
+		SchoolID           string  `json:"schoolId"`
+		FullName           string  `json:"fullName"`
+		Photo              *string `json:"photo,omitempty"`
+		CourseID           int     `json:"courseId"`
+		AttendanceStatus   string  `json:"attendanceStatus"`
+		ScannedAt          *string `json:"scannedAt,omitempty"`
+		AttendanceRecordID *int    `json:"attendanceRecordId,omitempty"`
 	}
 
 	var roster []RosterEntry
 	for rows.Next() {
 		var e RosterEntry
-		if err := rows.Scan(&e.ID, &e.SchoolID, &e.FullName, &e.Photo, &e.CourseID, &e.AttendanceStatus, &e.ScannedAt); err != nil {
+		if err := rows.Scan(&e.ID, &e.SchoolID, &e.FullName, &e.Photo, &e.CourseID, &e.AttendanceStatus, &e.ScannedAt, &e.AttendanceRecordID); err != nil {
 			continue
 		}
 		roster = append(roster, e)

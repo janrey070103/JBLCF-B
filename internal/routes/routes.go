@@ -75,6 +75,16 @@ func RegisterRoutes(mux *http.ServeMux) {
 	adminHandler.HandleFunc("/api/admin/reports/class", controllers.GetClassReport)
 	adminHandler.HandleFunc("/api/admin/reports/student", controllers.GetStudentReport)
 
+	// Attendance Delete
+	adminHandler.HandleFunc("/api/admin/attendance", controllers.DeleteAttendanceRecord)
+	adminHandler.HandleFunc("/api/admin/attendance/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete {
+			controllers.DeleteAttendanceRecord(w, r)
+		} else {
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
 	mux.Handle("/api/admin/", middleware.RequireAuth(middleware.RequireRole(models.Superadmin)(adminHandler)))
 
 	// Professor group
@@ -94,6 +104,16 @@ func RegisterRoutes(mux *http.ServeMux) {
 	// Approve endpoint (rate limited — prevents rapid-fire duplicate approval attempts)
 	profHandler.Handle("/api/prof/attendance/approve", middleware.RateLimitMiddleware(http.HandlerFunc(controllers.ApproveAttendance)))
 	profHandler.HandleFunc("/api/prof/attendance/class/", controllers.GetClassAttendance)
+
+	// Delete attendance record
+	profHandler.HandleFunc("/api/prof/attendance", controllers.DeleteAttendanceRecord)
+	profHandler.HandleFunc("/api/prof/attendance/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete {
+			controllers.DeleteAttendanceRecord(w, r)
+		} else {
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		}
+	})
 	
 	mux.Handle("/api/prof/", middleware.RequireAuth(middleware.RequireRole(models.Professor)(profHandler)))
 }
