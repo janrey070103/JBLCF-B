@@ -93,21 +93,6 @@ func ScanQRCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	now := time.Now()
-	sessionStart, sessionEnd, err := parseClassSessionWindow(classSchedule, now)
-	if err != nil {
-		sendError(w, http.StatusBadRequest, "Class schedule is invalid. Use a time range like 9:00am-12:00pm.")
-		return
-	}
-	if now.Before(sessionStart) {
-		sendError(w, http.StatusForbidden, "Attendance scanning is not open yet for this class session")
-		return
-	}
-	if now.After(sessionEnd) {
-		sendError(w, http.StatusForbidden, "Attendance scanning is already closed for this class session")
-		return
-	}
-
 	var s models.Student
 	err = db.DB.QueryRow(`
 		SELECT id, school_id, last_name, first_name, middle_name, suffix, full_name, email, phone, course_id, year_level, qr_token, photo, is_active, created_at 
@@ -181,18 +166,17 @@ func ApproveAttendance(w http.ResponseWriter, r *http.Request) {
 	}
 
 	now := time.Now()
-	sessionStart, sessionEnd, err := parseClassSessionWindow(classSchedule, now)
-	if err != nil {
-		sendError(w, http.StatusBadRequest, "Class schedule is invalid. Use a time range like 9:00am-12:00pm.")
-		return
-	}
-	if now.Before(sessionStart) {
-		sendError(w, http.StatusForbidden, "Attendance window is not open yet for this class session")
-		return
-	}
-	if now.After(sessionEnd) {
-		sendError(w, http.StatusForbidden, "Attendance window is already closed for this class session")
-		return
+	status := models.Present
+	note := ""
+	sessionStart, sessionEnd, errWindow := parseClassSessionWindow(classSchedule, now)
+	if errWindow == nil {
+		if now.After(sessionEnd) {
+			status = models.Late
+			note = "Scanned after scheduled session end"
+		} else if now.After(sessionStart.Add(15 * time.Minute)) {
+			status = models.Late
+			note = "Late: Scanned after 15-minute grace period"
+		}
 	}
 
 	// Verify student exists and is active
@@ -225,9 +209,9 @@ func ApproveAttendance(w http.ResponseWriter, r *http.Request) {
 
 	// Insert attendance record
 	res, err := db.DB.Exec(`
-		INSERT INTO attendance_records (class_id, student_id, session_date, status, method, approval_status)
-		VALUES (?, ?, ?, ?, ?, ?)
-	`, req.ClassID, req.StudentID, sessionDate, models.Present, "qr_scan", true)
+		INSERT INTO attendance_records (class_id, student_id, session_date, status, method, approval_status, note)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+	`, req.ClassID, req.StudentID, sessionDate, status, "qr_scan", true, note)
 
 	if err != nil {
 		if strings.Contains(err.Error(), "Duplicate entry") {

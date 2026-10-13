@@ -146,7 +146,7 @@ export function useAttendanceController() {
       return response;
     } catch (e) {
       const err = new Error(e.message || 'Student not found');
-      err.code = 'NOT_FOUND';
+      err.code = e.status === 404 ? 'NOT_FOUND' : 'SCAN_ERROR';
       throw err;
     }
   }, [selectedClassId]);

@@ -21,35 +21,76 @@
 }
 
 /* ── Print styles — QR ID-card output ────────────────────────────────── */
-/* When printing the QR code, hide everything except the card itself. */
 @media print {
+  /* Hide all app navigation, mobile headers, drawers, buttons, and decorative elements */
+  aside,
+  nav,
+  button,
+  .lg\:hidden,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* Reset all containers that impose height, overflow-hidden, transforms, or scrolling */
+  html,
+  body,
+  #root,
+  [class*="h-svh"],
+  main,
+  main > div,
+  .animate-fade-up {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    position: static !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    transform: none !important;
+    animation: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  /* Hide everything by default, then selectively reveal the print card */
   body * {
     visibility: hidden;
   }
 
   #qr-print-area,
   #qr-print-area * {
-    visibility: visible;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+    visibility: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
+  /* Center the card at the top of the printable sheet */
   #qr-print-area {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: flex-start !important;
+    margin: 0 !important;
+    padding: 12px 0 !important;
+    background: transparent !important;
+    z-index: 999999 !important;
   }
 
-  /* Remove shadows / backgrounds that don't render well in print. */
-  .shadow-card,
-  .shadow-elevated {
+  #qr-print-area section {
     box-shadow: none !important;
+    transform: none !important;
+    border: 1.5px solid #0A2472 !important;
+    border-radius: 12px !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 
   @page {
-    size: 3.375in 2.125in; /* standard CR-80 card size */
-    margin: 0;
+    size: auto;
+    margin: 8mm;
   }
 }
 

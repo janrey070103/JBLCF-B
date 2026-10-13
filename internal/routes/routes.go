@@ -15,6 +15,7 @@ import (
 func RegisterRoutes(mux *http.ServeMux) {
 	// Public Routes
 	mux.HandleFunc("/health", healthCheckHandler)
+	mux.Handle("/uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir("uploads"))))
 
 	// Auth Routes (Rate Limited)
 	mux.Handle("/api/auth/login", middleware.LoginRateLimiter(http.HandlerFunc(controllers.LoginHandler)))

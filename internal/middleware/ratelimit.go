@@ -45,10 +45,26 @@ func getVisitor(identifier string) *rate.Limiter {
 
 	v, exists := visitors[identifier]
 	if !exists {
-		// Limit to 5 attempts per 15 minutes.
-		// rate.Limit is events per second. 5 events / 900 seconds.
-		limit := rate.Every(15 * time.Minute / 5)
-		limiter := rate.NewLimiter(limit, 5)
+		// Limit to 30 attempts per 5 minutes for auth
+		limit := rate.Every(5 * time.Minute / 30)
+		limiter := rate.NewLimiter(limit, 30)
+		visitors[identifier] = &visitor{limiter, time.Now()}
+		return limiter
+	}
+
+	v.lastSeen = time.Now()
+	return v.limiter
+}
+
+func getApiVisitor(identifier string) *rate.Limiter {
+	mu.Lock()
+	defer mu.Unlock()
+
+	v, exists := visitors[identifier]
+	if !exists {
+		// High throughput for attendance scanning: 2 requests per second with burst of 60
+		limit := rate.Every(time.Second / 2)
+		limiter := rate.NewLimiter(limit, 60)
 		visitors[identifier] = &visitor{limiter, time.Now()}
 		return limiter
 	}
@@ -68,7 +84,6 @@ func LoginRateLimiter(next http.Handler) http.Handler {
 		}
 		ipLimiter := getVisitor("ip:" + ip)
 		
-		// We use Reserve to find out how long until we can proceed, but if it's not immediate, we block.
 		if !ipLimiter.Allow() {
 			rejectRateLimit(w)
 			return
@@ -97,7 +112,7 @@ func LoginRateLimiter(next http.Handler) http.Handler {
 }
 
 func rejectRateLimit(w http.ResponseWriter) {
-	w.Header().Set("Retry-After", strconv.Itoa(15*60)) // 15 minutes in seconds
+	w.Header().Set("Retry-After", strconv.Itoa(60))
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusTooManyRequests)
 	json.NewEncoder(w).Encode(map[string]string{
@@ -105,6 +120,18 @@ func rejectRateLimit(w http.ResponseWriter) {
 	})
 }
 
-// RateLimitMiddleware is an alias for LoginRateLimiter for use on non-login
-// sensitive endpoints (scan, approve) that share the same IP-based strategy.
-var RateLimitMiddleware = LoginRateLimiter
+// RateLimitMiddleware for operational attendance scanning (allows rapid scans)
+func RateLimitMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ip, _, err := net.SplitHostPort(r.RemoteAddr)
+		if err != nil {
+			ip = r.RemoteAddr
+		}
+		ipLimiter := getApiVisitor("api_ip:" + ip)
+		if !ipLimiter.Allow() {
+			rejectRateLimit(w)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}

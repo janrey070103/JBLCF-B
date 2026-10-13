@@ -7,6 +7,8 @@ import Card from '../../components/Card.jsx';
 import { QrGenerationSkeleton } from '../../components/Skeletons.jsx';
 import { useStudentController } from '../../controllers/useStudentController.jsx';
 
+import { resolveApiUrl } from '../../api/client.js';
+
 export default function StudentQr() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -66,24 +68,53 @@ export default function StudentQr() {
       </div>
 
       <div id="qr-print-area" className="flex justify-center">
-        <section className="w-[3.375in] min-h-[2.125in] bg-white border border-primary-200 rounded-nested shadow-card overflow-hidden transition-transform duration-200 ease-out-soft hover:-translate-y-0.5">
-          <header className="bg-primary text-white px-4 py-3 flex items-center justify-between">
-            <div>
-              <p className="text-sm font-semibold leading-none">JBLCF-B</p>
-              <p className="text-[10px] text-white/70 mt-1">Student Attendance ID</p>
+        <section className="w-[3.375in] h-[2.125in] bg-white border-2 border-primary rounded-xl shadow-card overflow-hidden flex flex-col justify-between transition-transform duration-200 ease-out-soft hover:-translate-y-0.5">
+          {/* Card Top Header */}
+          <div className="bg-primary text-white px-3.5 py-2 flex items-center justify-between border-b-2 border-secondary shrink-0">
+            <div className="min-w-0 pr-2">
+              <p className="text-xs font-bold tracking-wide uppercase leading-tight text-white">JBLCF - Bacolod</p>
+              <p className="text-[9px] text-secondary font-medium tracking-wide">Student Attendance Pass</p>
             </div>
-            <img src={logo} alt="JBLCF-B Logo" className="h-8 w-8 rounded-full object-cover bg-white shrink-0" />
-          </header>
-          <div className="grid grid-cols-[1fr_auto] gap-3 p-4">
-            <div className="min-w-0">
-              <p className="text-[10px] uppercase tracking-wide text-primary-400">Student</p>
-              <h2 className="text-base font-bold text-primary leading-tight break-words">{student.fullName}</h2>
-              <p className="text-xs text-primary-500 mt-2">{student.schoolId}</p>
-              <p className="text-xs text-primary-400">{student.email}</p>
+            <img src={logo} alt="JBLCF-B Logo" className="h-7 w-7 rounded-full object-cover bg-white shrink-0 p-0.5 shadow-sm" />
+          </div>
+
+          {/* Card Body */}
+          <div className="flex-1 flex items-center gap-3 px-3.5 py-2 min-h-0 bg-white">
+            {student.photo ? (
+              <img
+                src={resolveApiUrl(student.photo)}
+                alt={student.fullName}
+                className="w-14 h-18 rounded-lg object-cover border-2 border-primary/20 shrink-0 bg-primary-50 shadow-sm"
+              />
+            ) : (
+              <div className="w-14 h-18 rounded-lg border-2 border-dashed border-primary/30 shrink-0 bg-primary-50/50 flex flex-col items-center justify-center text-primary font-bold text-sm">
+                <span>{student.fullName ? student.fullName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() : 'ST'}</span>
+                <span className="text-[8px] font-normal text-primary-400 mt-0.5">NO PHOTO</span>
+              </div>
+            )}
+            <div className="min-w-0 flex-1 py-0.5">
+              <span className="inline-block px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider rounded bg-secondary/20 text-primary-900 border border-secondary/40">
+                Student
+              </span>
+              <h2 className="text-sm font-bold text-primary leading-tight break-words mt-1 line-clamp-2">
+                {student.fullName}
+              </h2>
+              <p className="text-xs font-bold text-primary-800 mt-1 tracking-tight">
+                {student.schoolId}
+              </p>
+              <p className="text-[9px] text-primary-500 truncate mt-0.5">
+                {student.email}
+              </p>
             </div>
-            <div className="bg-white border border-primary-100 p-2 rounded-nested">
-              <QRCodeSVG value={qrValue} size={92} level="M" includeMargin={false} />
+            <div className="bg-white border-2 border-primary/15 p-1.5 rounded-lg shrink-0 shadow-sm">
+              <QRCodeSVG value={qrValue} size={72} level="M" includeMargin={false} />
             </div>
+          </div>
+
+          {/* Card Bottom Footer Accent */}
+          <div className="bg-primary text-white text-[8px] font-semibold tracking-wider uppercase px-3 py-1 flex items-center justify-between border-t border-primary-800 shrink-0">
+            <span className="text-white/80">Scan for Attendance</span>
+            <span className="text-secondary font-bold">Official ID Pass</span>
           </div>
         </section>
       </div>

@@ -8,13 +8,13 @@ import (
 	"time"
 )
 
-var timeTokenRegex = regexp.MustCompile(`(?i)\b\d{1,2}:\d{2}\s*(?:am|pm)?\b`)
+var timeTokenRegex = regexp.MustCompile(`(?i)\b\d{1,2}(?::\d{2})?\s*(?:am|pm)?\b`)
 
 func parseClockToken(token string) (int, int, error) {
 	normalized := strings.ToLower(strings.TrimSpace(token))
 	normalized = strings.ReplaceAll(normalized, " ", "")
 
-	layouts := []string{"3:04pm", "15:04"}
+	layouts := []string{"3:04pm", "15:04", "3pm"}
 	var parsed time.Time
 	var err error
 	for _, layout := range layouts {
@@ -52,10 +52,6 @@ func parseClassSessionWindow(schedule string, now time.Time) (time.Time, time.Ti
 }
 
 func validateScheduleTimeRange(schedule string) error {
-	now := time.Now()
-	_, _, err := parseClassSessionWindow(schedule, now)
-	if err != nil {
-		return errors.New("schedule must include a valid time range like 9:00am-12:00pm or 09:00-12:00")
-	}
+	// Schedule is stored as descriptive text; if time tokens are detected, parseClassSessionWindow will use them.
 	return nil
 }

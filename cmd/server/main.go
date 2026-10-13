@@ -28,11 +28,6 @@ func main() {
 	mux := http.NewServeMux()
 	routes.RegisterRoutes(mux)
 
-	// Serve uploaded student photos as static files.
-	// Files are stored at ./uploads/<filename> on disk and the DB stores /uploads/<filename>.
-	// This handler makes GET /uploads/<filename> return the file so the browser can display it.
-	mux.Handle("/uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir("uploads"))))
-
 	// 5. Start the server, wrapped with CORS middleware.
 	// Allowed origins are read from CORS_ALLOWED_ORIGINS in .env.
 	port := config.GetEnv("PORT", config.GetEnv("SERVER_PORT", "8080"))

@@ -53,7 +53,9 @@ export async function fetchApi(endpoint, options = {}) {
     } catch (e) {
       errorMsg = res.statusText || errorMsg;
     }
-    throw new Error(errorMsg);
+    const err = new Error(errorMsg);
+    err.status = res.status;
+    throw err;
   }
 
   // If response is empty (e.g. 204 or some creates)
