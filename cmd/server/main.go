@@ -24,6 +24,11 @@ func main() {
 	// 3. Connect to the database
 	db.ConnectDB(dbHost, dbUser, dbPassword, dbName)
 
+	// 3b. Backfill any legacy attendance records that have NULL scanned_at
+	if _, err := db.DB.Exec(`UPDATE attendance_records SET scanned_at = session_date WHERE scanned_at IS NULL`); err != nil {
+		log.Printf("Notice: attendance_records scanned_at backfill: %v\n", err)
+	}
+
 	// 4. Setup HTTP multiplexer and register routes
 	mux := http.NewServeMux()
 	routes.RegisterRoutes(mux)

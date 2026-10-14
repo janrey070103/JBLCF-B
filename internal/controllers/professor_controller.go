@@ -209,9 +209,9 @@ func ApproveAttendance(w http.ResponseWriter, r *http.Request) {
 
 	// Insert attendance record
 	res, err := db.DB.Exec(`
-		INSERT INTO attendance_records (class_id, student_id, session_date, status, method, approval_status, note)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
-	`, req.ClassID, req.StudentID, sessionDate, status, "qr_scan", true, note)
+		INSERT INTO attendance_records (class_id, student_id, session_date, status, method, scanned_at, approval_status, note)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+	`, req.ClassID, req.StudentID, sessionDate, status, "qr_scan", now, true, note)
 
 	if err != nil {
 		if strings.Contains(err.Error(), "Duplicate entry") {

@@ -182,8 +182,8 @@ func GetClassRoster(w http.ResponseWriter, r *http.Request) {
 			_, sessionEnd, parseErr := parseClassSessionWindow(classSchedule, now)
 			if parseErr == nil && now.After(sessionEnd) {
 				_, _ = db.DB.Exec(`
-					INSERT INTO attendance_records (class_id, student_id, session_date, status, method, approval_status, note)
-					SELECT ce.class_id, ce.student_id, ?, ?, ?, true, ?
+					INSERT INTO attendance_records (class_id, student_id, session_date, status, method, scanned_at, approval_status, note)
+					SELECT ce.class_id, ce.student_id, ?, ?, ?, NOW(), true, ?
 					FROM class_enrollments ce
 					JOIN students s ON s.id = ce.student_id
 					LEFT JOIN attendance_records ar
